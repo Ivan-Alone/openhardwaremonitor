@@ -111,7 +111,21 @@ namespace OpenHardwareMonitor.GUI {
       this.log1hMenuItem = new System.Windows.Forms.MenuItem();
       this.log2hMenuItem = new System.Windows.Forms.MenuItem();
       this.log6hMenuItem = new System.Windows.Forms.MenuItem();
-      this.splitContainer.Panel1.SuspendLayout();
+      this.menuItem4 = new System.Windows.Forms.MenuItem();
+	  this.runSerialMenuItem = new System.Windows.Forms.MenuItem();
+	  this.serialConfigMenuItem = new System.Windows.Forms.MenuItem();
+	  this.menuItem4.MenuItems.AddRange(new System.Windows.Forms.MenuItem[2] {
+		this.runSerialMenuItem,
+		this.serialConfigMenuItem
+	  });
+	  this.menuItem4.Text = "Serial";
+	  this.runSerialMenuItem.Index = 0;
+	  this.runSerialMenuItem.Text = "Run";
+	  this.runSerialMenuItem.Click += new System.EventHandler(this.runSerialMenuItem_Click);
+	  this.serialConfigMenuItem.Index = 1;
+	  this.serialConfigMenuItem.Text = "Config";
+	  this.serialConfigMenuItem.Click += new System.EventHandler(this.serialConfigMenuItem_Click);
+	  this.splitContainer.Panel1.SuspendLayout();
       this.splitContainer.SuspendLayout();
       this.SuspendLayout();
       // 
@@ -374,7 +388,9 @@ namespace OpenHardwareMonitor.GUI {
             this.logSensorsMenuItem,
             this.loggingIntervalMenuItem,
             this.webMenuItemSeparator,
-            this.webMenuItem});
+            this.webMenuItem,
+			this.menuItem4
+	  });
       this.optionsMenuItem.Text = "Options";
       // 
       // startMinMenuItem

@@ -9,25 +9,30 @@
 	Copyright (C) 2012 Prince Samuel <prince.samuel@gmail.com>
 
 */
-
+using Aga.Controls.Tree;
+using Aga.Controls.Tree.NodeControls;
+using Microsoft.Win32;
+using OpenHardwareMonitor.Hardware;
+using OpenHardwareMonitor.Utilities;
+using OpenHardwareMonitor.WMI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Windows.Forms;
-using Aga.Controls.Tree;
-using Aga.Controls.Tree.NodeControls;
-using OpenHardwareMonitor.Hardware;
-using OpenHardwareMonitor.WMI;
-using OpenHardwareMonitor.Utilities;
 
 namespace OpenHardwareMonitor.GUI {
   public partial class MainForm : Form {
 
-    private PersistentSettings settings;
+	private UserOption runSerial;
+	private Serial serial;
+
+	public PersistentSettings settings;
     private UnitManager unitManager;
     private Computer computer;
     private Node root;
@@ -70,7 +75,11 @@ namespace OpenHardwareMonitor.GUI {
     private UserRadioGroup loggingInterval;
     private Logger logger;
 
-    private bool selectionDragging = false;
+	private MenuItem runSerialMenuItem;
+	private MenuItem serialConfigMenuItem;
+    private MenuItem menuItem4;
+
+	private bool selectionDragging = false;
 
     public MainForm() {      
       InitializeComponent();
@@ -283,7 +292,17 @@ namespace OpenHardwareMonitor.GUI {
           server.StopHTTPListener();
       };
 
-      logSensors = new UserOption("logSensorsMenuItem", false, logSensorsMenuItem,
+		this.serial = new Serial();
+		this.runSerial = new UserOption(nameof(runSerialMenuItem), false, this.runSerialMenuItem, this.settings);
+		this.runSerial.Changed += (EventHandler)((sender, e) =>
+		{
+			if (this.runSerial.Value)
+				this.serial.Open();
+			else
+				this.serial.Close();
+		});
+
+			logSensors = new UserOption("logSensorsMenuItem", false, logSensorsMenuItem,
         settings);
 
       loggingInterval = new UserRadioGroup("loggingInterval", 0,
@@ -552,12 +571,132 @@ namespace OpenHardwareMonitor.GUI {
 
     private void exitClick(object sender, EventArgs e) {
       Close();
-    }
+		}
 
-    private int delayCount = 0;
+		private float MaxTemp(Computer computer, HardwareType type)
+		{
+			IHardware[] array1 = ((IEnumerable<IHardware>)computer.Hardware).Where<IHardware>((Func<IHardware, bool>)(x => x.HardwareType == type)).ToArray<IHardware>();
+			if (!((IEnumerable<IHardware>)array1).Any<IHardware>())
+				return 0.0f;
+			float val2 = 0.0f;
+			foreach (IHardware hardware1 in array1)
+			{
+				ISensor[] array2 = ((IEnumerable<ISensor>)hardware1.Sensors).Where<ISensor>((Func<ISensor, bool>)(x => x.SensorType == SensorType.Temperature)).ToArray<ISensor>();
+				if (((IEnumerable<ISensor>)array2).Any<ISensor>())
+					val2 = Math.Max(((IEnumerable<ISensor>)array2).Max<ISensor, float>((Func<ISensor, float>)(x => x.Value.Value)), val2);
+				foreach (IHardware hardware2 in hardware1.SubHardware)
+				{
+					ISensor[] array3 = ((IEnumerable<ISensor>)hardware2.Sensors).Where<ISensor>((Func<ISensor, bool>)(x => x.SensorType == SensorType.Temperature)).ToArray<ISensor>();
+					if (((IEnumerable<ISensor>)array3).Any<ISensor>())
+						val2 = Math.Max(((IEnumerable<ISensor>)array3).Max<ISensor, float>((Func<ISensor, float>)(x => x.Value.Value)), val2);
+				}
+			}
+			return val2;
+		}
+
+		private float UsageInPercent(Computer computer, HardwareType type, string Name)
+		{
+			int num1 = 0;
+			float num2 = -1f;
+			IHardware[] array1 = ((IEnumerable<IHardware>)computer.Hardware).Where<IHardware>((Func<IHardware, bool>)(device => device.HardwareType == type)).ToArray<IHardware>();
+			if (((IEnumerable<IHardware>)array1).Count<IHardware>() > 0)
+			{
+				foreach (IHardware hardware in array1)
+				{
+					ISensor[] array2 = ((IEnumerable<ISensor>)hardware.Sensors).Where<ISensor>((Func<ISensor, bool>)(x =>
+					{
+						if (x.Name == Name)
+							return x.SensorType == SensorType.Load;
+						return false;
+					})).ToArray<ISensor>();
+					if ((uint)((IEnumerable<ISensor>)array2).Count<ISensor>() > 0U)
+					{
+						++num1;
+						num2 = ((IEnumerable<ISensor>)array2).Average<ISensor>((Func<ISensor, float>)(temp => temp.Value.Value));
+					}
+				}
+			}
+			return num1 > 0 ? num2 / (float)num1 : 0.0f;
+		}
+
+		private float UsageInPercent(Computer computer, HardwareType type)
+		{
+			int num1 = 0;
+			float num2 = -1f;
+			IHardware[] array1 = ((IEnumerable<IHardware>)computer.Hardware).Where<IHardware>((Func<IHardware, bool>)(x => x.HardwareType == type)).ToArray<IHardware>();
+			if (((IEnumerable<IHardware>)array1).Count<IHardware>() > 0)
+			{
+				foreach (IHardware hardware in array1)
+				{
+					ISensor[] array2 = ((IEnumerable<ISensor>)hardware.Sensors).Where<ISensor>((Func<ISensor, bool>)(x => x.SensorType == SensorType.Load)).ToArray<ISensor>();
+					if ((uint)((IEnumerable<ISensor>)array2).Count<ISensor>() > 0U)
+					{
+						++num1;
+						num2 = ((IEnumerable<ISensor>)array2).Average<ISensor>((Func<ISensor, float>)(temp => temp.Value.Value));
+					}
+				}
+			}
+			return num1 > 0 ? num2 / (float)num1 : 0.0f;
+		}
+
+		private float AvgTemp(Computer computer, HardwareType type)
+		{
+			IHardware[] array1 = ((IEnumerable<IHardware>)computer.Hardware).Where<IHardware>((Func<IHardware, bool>)(x => x.HardwareType == type)).ToArray<IHardware>();
+			if (!((IEnumerable<IHardware>)array1).Any<IHardware>())
+				return 0.0f;
+			int num1 = 0;
+			float num2 = 0.0f;
+			foreach (IHardware hardware1 in array1)
+			{
+				ISensor[] array2 = ((IEnumerable<ISensor>)hardware1.Sensors).Where<ISensor>((Func<ISensor, bool>)(x => x.SensorType == SensorType.Temperature)).ToArray<ISensor>();
+				if (((IEnumerable<ISensor>)array2).Any<ISensor>())
+				{
+					float num3 = ((IEnumerable<ISensor>)array2).Average<ISensor>((Func<ISensor, float>)(x => x.Value.Value));
+					num2 += num3;
+					++num1;
+				}
+				foreach (IHardware hardware2 in hardware1.SubHardware)
+				{
+					ISensor[] array3 = ((IEnumerable<ISensor>)hardware2.Sensors).Where<ISensor>((Func<ISensor, bool>)(x => x.SensorType == SensorType.Temperature)).ToArray<ISensor>();
+					if (((IEnumerable<ISensor>)array3).Any<ISensor>())
+					{
+						float num3 = ((IEnumerable<ISensor>)array3).Average<ISensor>((Func<ISensor, float>)(x => x.Value.Value));
+						num2 += num3;
+						++num1;
+					}
+				}
+			}
+			if (num1 > 0)
+				return num2 / (float)num1;
+			return 0.0f;
+		}
+
+		private int delayCount = 0;
     private void timer_Tick(object sender, EventArgs e) {
       computer.Accept(updateVisitor);
-      treeView.Invalidate();
+		this.serial.Write(Encoding.ASCII.GetBytes(string.Join(";", new List<float>() {
+			(float) (int) this.MaxTemp(this.computer, HardwareType.CPU),
+			(float) Math.Max((int) this.MaxTemp(this.computer, HardwareType.GpuNvidia), (int) this.MaxTemp(this.computer, HardwareType.GpuAti)),
+			(float) (int) this.MaxTemp(this.computer, HardwareType.Mainboard),
+			(float) (int) this.MaxTemp(this.computer, HardwareType.HDD),
+			(float) (int) this.UsageInPercent(this.computer, HardwareType.CPU, "CPU Total"),
+			(float) Math.Max((int) this.UsageInPercent(this.computer, HardwareType.GpuAti, "GPU Core"), (int) this.UsageInPercent(this.computer, HardwareType.GpuNvidia, "GPU Core")),
+			(float) (int) this.UsageInPercent(this.computer, HardwareType.RAM, "Memory"),
+			(float) Math.Max((int) this.UsageInPercent(this.computer, HardwareType.GpuAti, "GPU Memory"), (int) this.UsageInPercent(this.computer, HardwareType.GpuNvidia, "GPU Memory")),
+			(float) this.settings.GetValue("nMaxFan", 100),
+			(float) this.settings.GetValue("nMinFan", 20),
+			(float) this.settings.GetValue("nMaxTemp", 100),
+			(float) this.settings.GetValue("nMinTemp", 10),
+			this.settings.GetValue("chkManualFan", false) ? 1f : 0.0f,
+			this.settings.GetValue("chkManualColor", false) ? 1f : 0.0f,
+			(float) this.settings.GetValue("sldManualFan", 50),
+			(float) this.settings.GetValue("sldManualColor", 500),
+			(float) this.settings.GetValue("sldLedBrightness", 50),
+			(float) this.settings.GetValue("sldPlotInterval", 5),
+			(float) this.settings.GetValue("cboMaxTempSource", 0)
+		}.Select<float, string>((Func<float, string>)(T => T.ToString())).ToArray<string>())));
+		this.serial.Write(Encoding.ASCII.GetBytes("E"));
+		treeView.Invalidate();
       plotPanel.InvalidatePlot();
       systemTray.Redraw();
       if (gadget != null)
@@ -574,7 +713,7 @@ namespace OpenHardwareMonitor.GUI {
         delayCount++;
     }
 
-    private void SaveConfiguration() {
+    public void SaveConfiguration() {
       plotPanel.SetCurrentSettings();
       foreach (TreeColumn column in treeView.Columns)
         settings.SetValue("treeView.Columns." + column.Header + ".Width",
@@ -737,13 +876,11 @@ namespace OpenHardwareMonitor.GUI {
             controlItem.MenuItems.Add(manualItem);
             manualItem.Checked = control.ControlMode == ControlMode.Software;
             for (int i = 0; i <= 100; i += 5) {
-              if (i <= control.MaxSoftwareValue &&
-                  i >= control.MinSoftwareValue) {
+              if (i <= control.MaxSoftwareValue && i >= control.MinSoftwareValue) {
                 MenuItem item = new MenuItem(i + " %");
                 item.RadioCheck = true;
                 manualItem.MenuItems.Add(item);
-                item.Checked = control.ControlMode == ControlMode.Software &&
-                  Math.Round(control.SoftwareValue) == i;
+                item.Checked = control.ControlMode == ControlMode.Software && Math.Round(control.SoftwareValue) == i;
                 int softwareValue = i;
                 item.Click += delegate(object obj, EventArgs args) {
                   control.SetSoftware(softwareValue);
@@ -902,7 +1039,24 @@ namespace OpenHardwareMonitor.GUI {
 
     public HttpServer Server {
       get { return server; }
-    }
+		}
 
-  }
+		public Serial Serial
+		{
+			get
+			{
+				return this.serial;
+			}
+		}
+
+		private void serialConfigMenuItem_Click(object sender, EventArgs e)
+		{
+			int num = (int)new SerialForm(this).ShowDialog();
+		}
+
+		private void runSerialMenuItem_Click(object sender, EventArgs e)
+		{
+		}
+
+	}
 }
