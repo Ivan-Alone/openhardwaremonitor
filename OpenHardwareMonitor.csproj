@@ -110,6 +110,9 @@
     </Compile>
     <Compile Include="GUI\SensorGadget.cs" />
     <Compile Include="GUI\SensorNotifyIcon.cs" />
+    <Compile Include="GUI\SerialForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="GUI\ShowDesktop.cs" />
     <Compile Include="GUI\SplitContainerAdv.cs">
       <SubType>Component</SubType>
@@ -123,7 +126,9 @@
     <Compile Include="GUI\UpdateVisitor.cs" />
     <Compile Include="GUI\UserOption.cs" />
     <Compile Include="GUI\UserRadioGroup.cs" />
+    <Compile Include="Properties.cs" />
     <Compile Include="Properties\AssemblyVersion.cs" />
+    <Compile Include="Utilities\Serial.cs" />
     <Compile Include="Utilities\HttpServer.cs" />
     <Compile Include="Utilities\Logger.cs" />
     <Compile Include="Utilities\PersistentSettings.cs" />
@@ -159,6 +164,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="GUI\PortForm.resx">
       <DependentUpon>PortForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GUI\SerialForm.resx">
+      <DependentUpon>SerialForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\ati.png">
     </EmbeddedResource>
